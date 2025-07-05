@@ -2,6 +2,10 @@ name: "Deb Cache"
 description: "Update apt, cache debian packages with their dependencies, and install them."
 author: "dsx137"
 
+branding:
+  icon: "archive"
+  color: "blue"
+
 inputs:
   PACKAGES:
     description: "pkg list"

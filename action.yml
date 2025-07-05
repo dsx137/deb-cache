@@ -1,0 +1,51 @@
+name: "Deb Cache"
+description: "Update apt, cache debian packages with their dependencies, and install them."
+author: "dsx137"
+
+inputs:
+  packages:
+    description: "pkg list"
+    required: true
+
+runs:
+  using: "composite"
+  env:
+    WORK_DIR: /tmp/deb-cache
+    PKG_FILE: pkg.txt
+  steps:
+    - name: Update apt repositories
+      run: apt-get update -y
+      shell: bash
+
+    - name: Analyze packages
+      id: analyze
+      shell: bash
+      run: |
+        apt-get install --print-uris --yes --reinstall -qq ${{ inputs.packages  }} \
+          | tr -d "'" \
+          | awk '{ sub(/_.*/, "", $2); print $2, $4 }' > ${{ env.WORK_DIR }}/pkg.txt
+        echo "cache-key=$(sha256sum pkg.txt | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+    - name: Cache
+      uses: actions/cache@v4
+      id: cache-debs
+      with:
+        path: ${{ env.WORK_DIR }}/.cache
+        key: deb-cache-${{ runner.os }}-${{ steps.analyze.outputs.cache-key }}
+        restore-keys: |
+          deb-cache-${{ runner.os }}-
+
+    - name: Download
+      if: steps.cache-debs.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "Cache miss or restore key used. Downloading required packages..."
+        mkdir -p ${{ env.WORK_DIR }}/.cache
+        apt-get download -q -o Dir::Cache::archives="${{ env.WORK_DIR }}/.cache/" $(awk '{print $1}' ${{ env.WORK_DIR }}/pkg.txt)
+
+    - name: Install
+      shell: bash
+      run: |
+        echo "Installing packages..."
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get install --yes --no-install-recommends -o Dir::Cache::archives="${{ env.WORK_DIR }}/.cache/" ${{ inputs.packages }}

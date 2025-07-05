@@ -13,18 +13,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  prepare:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract
-        uses: ./actions.yml
+      - name: Deb Cache
+        uses: ./
         with:
-          packages: |
+          PACKAGES: |
             btop
-            jq
+            qemu-system-x86
 
       - name: Test
         run: |

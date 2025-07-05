@@ -18,9 +18,21 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Setup Sudo
+      id: sudo-setup
+      shell: bash
+      run: |
+        if [ "$(id -u)" -eq 0 ]; then
+          echo "Running as root, sudo not required."
+          echo "SUDO_CMD=" >> $GITHUB_ENV
+        else
+          echo "Running as non-root, sudo is required."
+          echo "SUDO_CMD=sudo" >> $GITHUB_ENV
+        fi
+
     - name: Update apt repositories
       shell: bash
-      run: sudo apt-get update -y
+      run: ${{ env.SUDO_CMD }} apt-get update -y
 
     - name: Analyze
       id: analyze
@@ -31,10 +43,10 @@ runs:
         ${{ inputs.PACKAGES }}
         EOF
         ) | sed 's/^[ \t]*//;s/[ \t]*$//')
-        sudo apt-get install --print-uris --yes --reinstall -qq $packages \
+        ${{ env.SUDO_CMD }} apt-get install --print-uris --yes --reinstall -qq $packages \
           | tr -d "'" \
-          | awk '{ sub(/_.*/, "", $2); print $2, $4 }' > ${{ inputs.WORK_DIR }}/pkg.txt
-        cache_key=$(sha256sum ${{ inputs.WORK_DIR }}/pkg.txt | awk '{print $1}')
+          | awk '{ sub(/_.*/, "", $2); print $2, $4 }' > ${{ inputs.WORK_DIR }}/${{ inputs.PKG_FILE }}
+        cache_key=$(sha256sum ${{ inputs.WORK_DIR }}/${{ inputs.PKG_FILE }} | awk '{print $1}')
         echo "cache_key=$cache_key" >> $GITHUB_OUTPUT
         echo "packages=$packages" >> $GITHUB_OUTPUT
         echo "Cache key: $cache_key"
@@ -55,16 +67,16 @@ runs:
       run: |
         echo "Cache miss or restore key used. Downloading required packages..."
         mkdir -p ${{ inputs.WORK_DIR }}/.cache
-        sudo apt-get download -o Dir::Cache::archives="${{ inputs.WORK_DIR }}/.cache/" $(awk '{print $1}' ${{ inputs.WORK_DIR }}/pkg.txt)
+        ${{ env.SUDO_CMD }} apt-get download -o Dir::Cache::archives="${{ inputs.WORK_DIR }}/.cache/" $(awk '{print $1}' ${{ inputs.WORK_DIR }}/${{ inputs.PKG_FILE }})
 
     - name: Install
       shell: bash
       run: |
         echo "Installing packages..."
         export DEBIAN_FRONTEND=noninteractive
-        sudo apt-get install --yes --no-install-recommends -o Dir::Cache::archives="${{ inputs.WORK_DIR }}/.cache/" ${{ steps.analyze.outputs.packages }}
+        ${{ env.SUDO_CMD }} apt-get install --yes --no-install-recommends -o Dir::Cache::archives="${{ inputs.WORK_DIR }}/.cache/" ${{ steps.analyze.outputs.packages }}
 
     - name: Chmod
       shell: bash
       run: |
-        sudo chmod -R 777 ${{ inputs.WORK_DIR }}
+        ${{ env.SUDO_CMD }} chmod -R 777 ${{ inputs.WORK_DIR }}

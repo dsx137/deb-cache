@@ -1,0 +1,57 @@
+name: snapshot
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  publish:
+    concurrency:
+      group: release
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "21"
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Get package version
+        id: get_version
+        run: cat "version=$(cat ./VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Generate Changelog
+        id: get_changelog
+        run: |
+          tag="$(git --no-pager tag --sort=creatordate --merged ${{ github.ref_name }} | grep -v nightly | tail -1)"
+          limit="-1"
+          if [ -n "$tag" ]; then
+            limit="$tag..HEAD"
+          fi
+          changelog="$(echo -ne "$(git log "$limit" --pretty=format:'- %s')")"
+          changelog="$(echo -e "$changelog" | sed 's/$/  /')"
+          {
+            echo 'changelog<<EOF'
+            echo "$changelog"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Update Snapshot Release
+        uses: andelf/nightly-release@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: ${{ steps.get_version.outputs.version }}
+          prerelease: false
+          body: ${{ steps.get_changelog.outputs.changelog }}

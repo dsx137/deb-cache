@@ -67,7 +67,8 @@ runs:
       run: |
         echo "Cache miss or restore key used. Downloading required packages..."
         mkdir -p ${{ inputs.WORK_DIR }}/.cache
-        ${{ env.SUDO_CMD }} apt-get download -o Dir::Cache::archives="${{ inputs.WORK_DIR }}/.cache/" $(awk '{print $1}' ${{ inputs.WORK_DIR }}/${{ inputs.PKG_FILE }})
+        cd ${{ inputs.WORK_DIR }}/.cache/
+        ${{ env.SUDO_CMD }} apt-get download $(awk '{print $1}' ${{ inputs.WORK_DIR }}/${{ inputs.PKG_FILE }})
 
     - name: Install
       shell: bash

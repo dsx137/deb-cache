@@ -1,10 +1,9 @@
 # Deb Cache
 
 ```yaml
-- name: Deb Cache
-uses: dsx137/deb-cache@main
-with:
+- uses: dsx137/deb-cache@main
+  with:
     PACKAGES: |
-    btop
-    qemu-system-x86
+      btop
+      qemu-system-x86
 ```

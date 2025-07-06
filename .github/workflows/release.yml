@@ -28,7 +28,7 @@ jobs:
 
       - name: Get package version
         id: get_version
-        run: cat "version=$(cat ./VERSION)" >> $GITHUB_OUTPUT
+        run: echo "version=$(cat ./VERSION)" >> $GITHUB_OUTPUT
 
       - name: Generate Changelog
         id: get_changelog
